@@ -8,7 +8,7 @@ from fpdf import FPDF
 # Consíguela en: https://aistudio.google.com/app/apikey
 GENAI_API_KEY = "AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE" 
 genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('model = genai.GenerativeModel('gemini-pro')
 
 # 2. CONFIGURACIÓN DE PÁGINA "SÍ AL MÉRITO"
 st.set_page_config(page_title="SÍ AL MÉRITO - IA Engine", layout="wide")
