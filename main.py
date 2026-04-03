@@ -7,7 +7,7 @@ GENAI_API_KEY = "AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE"
 genai.configure(api_key=GENAI_API_KEY)
 
 # 2. SELECCIÓN DEL MODELO (Línea corregida para evitar error 404)
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+model = genai.GenerativeModel(''gemini-1.5-flash'')
 
 # 3. CONFIGURACIÓN VISUAL
 st.set_page_config(page_title="SÍ AL MÉRITO - IA Engine", layout="wide")
