@@ -1,97 +1,87 @@
 import streamlit as st
 import random
+from fpdf import FPDF
+import base64
 
-# 1. CONFIGURACIÓN PROFESIONAL DE SÍ AL MÉRITO
-st.set_page_config(page_title="SÍ AL MÉRITO: Entrenamiento Pro", layout="wide")
+# CONFIGURACIÓN DE MARCA SÍ AL MÉRITO
+st.set_page_config(page_title="SÍ AL MÉRITO - VIP", layout="wide")
 
-# Estilos de marca (Verde y Dorado)
-st.markdown("""
-    <style>
-    .stApp { background-color: #121212; color: white; }
-    .stButton>button { 
-        background-color: #2e7d32; 
-        color: white; 
-        border-radius: 8px; 
-        height: 3em; 
-        width: 100%;
-        font-weight: bold;
-    }
-    .stRadio > label { color: #d4af37 !important; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
+# LÓGICA DE PDF PARA VIPs
+def crear_pdf(nombre, puntaje, resultados, nivel):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, "REPORTE DE RESULTADOS - SÍ AL MÉRITO", ln=True, align='C')
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, f"Aspirante: {nombre} | Nivel: {nivel}", ln=True, align='C')
+    pdf.cell(200, 10, f"Puntaje Final: {puntaje}/100", ln=True, align='C')
+    pdf.ln(10)
+    
+    for res in resultados:
+        pdf.set_font("Arial", 'B', 10)
+        pdf.multi_cell(0, 10, f"Pregunta: {res['p']}")
+        pdf.set_font("Arial", size=10)
+        pdf.multi_cell(0, 10, f"Tu respuesta: {res['u']} | Correcta: {res['c']}")
+        pdf.set_text_color(46, 125, 50)
+        pdf.multi_cell(0, 10, f"Sustento Legal: {res['s']}")
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(5)
+    return pdf.output(dest='S').encode('latin-1')
 
-# Encabezado Principal
-st.markdown("<h1 style='text-align: center; color: #2e7d32;'>🏆 SÍ AL MÉRITO: Entrenamiento Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #d4af37;'><b>Centro de Entrenamiento de Alto Rendimiento para Concursos de Mérito</b></p>", unsafe_allow_html=True)
-st.write("---")
-
-# 2. BASE DE DATOS DE PREGUNTAS (Aquí puedes seguir agregando más)
-# Nota: Asegúrate de que las opciones ('o') incluyan siempre la respuesta correcta ('r')
+# --- BASE DE DATOS (EJEMPLO - AQUÍ VAN TUS EJES) ---
 preguntas_db = {
     "Ley 1755 (Peticiones)": [
-        {"p": "¿Cuál es el plazo general para responder una petición de interés general?", "o": ["10 días hábiles", "15 días hábiles", "30 días hábiles"], "r": "15 días hábiles"},
-        {"p": "¿Qué plazo hay para responder consultas a las autoridades?", "o": ["10 días", "30 días hábiles", "15 días"], "r": "30 días hábiles"}
-    ],
-    "Régimen Disciplinario": [
-        {"p": "¿Cuál es la sanción máxima para una falta gravísima dolosa?", "o": ["Destitución e inhabilidad", "Suspensión de 1 mes", "Amonestación escrita"], "r": "Destitución e inhabilidad"},
-        {"p": "¿A quién se le aplica el Código General Disciplinario?", "o": ["Solo a empleados públicos", "A servidores públicos y particulares que cumplen funciones públicas", "Solo a contratistas"], "r": "A servidores públicos y particulares que cumplen funciones públicas"}
+        {"p": "¿Plazo para peticiones de documentos?", "o": ["10 días", "15 días", "30 días"], "r": "10 días", "s": "Art. 14 Ley 1755: Las peticiones de documentos deben resolverse en 10 días."},
+        # Agregar aquí las 100 preguntas por tema...
     ]
 }
 
-# 3. GESTIÓN DEL ESTADO (La "memoria" de la App)
-if 'entrenamiento_iniciado' not in st.session_state:
-    st.session_state.entrenamiento_iniciado = False
-if 'preguntas_actuales' not in st.session_state:
-    st.session_state.preguntas_actuales = []
+# GESTIÓN DE SESIÓN
+if 'examen_finalizado' not in st.session_state: st.session_state.examen_finalizado = False
+if 'es_vip' not in st.session_state: st.session_state.es_vip = False
 
-# 4. PANEL LATERAL (CONFIGURACIÓN)
+# PANEL DE ACCESO
 with st.sidebar:
-    st.header("🎯 Panel de Control")
-    nivel = st.selectbox("1. Elige tu Nivel:", ["Asistencial", "Técnico", "Profesional"])
-    tema = st.selectbox("2. Elige el Tema:", list(preguntas_db.keys()))
-    cantidad = st.slider("3. Cantidad de preguntas:", 2, 20, 5)
+    st.image("https://tu-logo-url.com", width=200) # Opcional: Tu logo
+    codigo = st.text_input("🔑 Código VIP (Opcional):", type="password")
+    if codigo == "CESAR2026": # Tu clave maestra actual
+        st.session_state.es_vip = True
+        st.success("MODO VIP ACTIVADO")
     
-    if st.button("🚀 INICIAR ENTRENAMIENTO"):
-        # Seleccionamos preguntas al azar del tema elegido
-        lista_tema = preguntas_db[tema]
-        n_seleccionar = min(len(lista_tema), cantidad)
-        st.session_state.preguntas_actuales = random.sample(lista_tema, n_seleccionar)
-        st.session_state.entrenamiento_iniciado = True
-        st.session_state.respuestas_usuario = {} # Limpiamos respuestas anteriores
+    nivel = st.selectbox("Nivel de Carrera:", ["Asistencial", "Técnico", "Profesional", "Asesor"])
+    tema = st.selectbox("Eje Temático:", list(preguntas_db.keys()))
+    
+    max_preguntas = 100 if st.session_state.es_vip else 15
+    cantidad = st.select_slider("Cantidad de Preguntas:", options=[10, 20, 50, 100] if st.session_state.es_vip else [5, 10, 15])
 
-# 5. ÁREA DE EXAMEN
-if st.session_state.entrenamiento_iniciado:
-    st.subheader(f"📝 Simulacro: {tema} ({nivel})")
-    
-    # Formulario para evitar que la página se refresque con cada clic
-    with st.form("examen_form"):
-        for i, item in enumerate(st.session_state.preguntas_actuales):
-            st.markdown(f"**Pregunta {i+1}:** {item['p']}")
-            st.session_state.respuestas_usuario[i] = st.radio(
-                "Selecciona una opción:", 
-                item['o'], 
-                key=f"q_{i}_{tema}"
-            )
-            st.write("") # Espacio
+    if st.button("🚀 INICIAR"):
+        st.session_state.preguntas = random.sample(preguntas_db[tema], min(len(preguntas_db[tema]), cantidad))
+        st.session_state.examen_finalizado = False
+        st.session_state.respuestas = {}
+
+# INTERFAZ DE EXAMEN
+if 'preguntas' in st.session_state:
+    with st.form("simulacro"):
+        for i, q in enumerate(st.session_state.preguntas):
+            st.markdown(f"**{i+1}. {q['p']}**")
+            st.session_state.respuestas[i] = st.radio("Opciones:", q['o'], key=f"r_{i}")
         
-        boton_finalizar = st.form_submit_button("✅ FINALIZAR Y CALIFICAR")
+        enviar = st.form_submit_button("CALIFICAR")
         
-        if boton_finalizar:
-            aciertos = 0
-            for i, item in enumerate(st.session_state.preguntas_actuales):
-                if st.session_state.respuestas_usuario[i] == item['r']:
-                    aciertos += 1
+        if enviar:
+            correctas = sum(1 for i, q in enumerate(st.session_state.preguntas) if st.session_state.respuestas[i] == q['r'])
+            puntaje = (correctas / len(st.session_state.preguntas)) * 100
             
-            # Resultado Final
-            st.balloons()
-            st.markdown(f"### Resultado: {aciertos} / {len(st.session_state.preguntas_actuales)} correctas")
-            if aciertos == len(st.session_state.preguntas_actuales):
-                st.success("¡Puntaje Perfecto! Estás listo para el mérito. 🏆")
+            st.metric("Puntaje Final", f"{puntaje}/100")
+            
+            if st.session_state.es_vip:
+                st.balloons()
+                # Preparar datos para el PDF
+                lista_resultados = []
+                for i, q in enumerate(st.session_state.preguntas):
+                    lista_resultados.append({'p': q['p'], 'u': st.session_state.respuestas[i], 'c': q['r'], 's': q['s']})
+                
+                pdf_data = crear_pdf("Aspirante VIP", puntaje, lista_resultados, nivel)
+                st.download_button("📥 DESCARGAR REPORTE PDF", data=pdf_data, file_name="resultado_vip.pdf", mime="application/pdf")
             else:
-                st.info("Sigue practicando para alcanzar la excelencia.")
-
-else:
-    st.warning("👈 Por favor, configura tu prueba en el panel de la izquierda y presiona 'Iniciar Entrenamiento'.")
-
-st.write("---")
-st.caption("Desarrollado por SÍ AL MÉRITO - 2026")
+                st.info("Puntaje registrado. Los reportes PDF son exclusivos para miembros VIP.")
