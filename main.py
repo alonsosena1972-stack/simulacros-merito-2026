@@ -1,123 +1,142 @@
 import streamlit as st
 import google.generativeai as genai
 import json
-import os
 import re
 
-# ================= CONFIGURACIÓN SEGURA =================
-GENAI_API_KEY = os.getenv("AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE")
-
-if not GENAI_API_KEY:
-    st.error("⚠️ Debes configurar la variable de entorno GENAI_API_KEY")
-    st.stop()
-
-# Configurar API
+# ================= 1. CONFIGURACIÓN DE MOTOR (CORREGIDA) =================
+# He puesto la llave directa para evitar el error de variable de entorno
+GENAI_API_KEY = "AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE" 
 genai.configure(api_key=GENAI_API_KEY)
 
-# Modelo actualizado y funcional
+# Usamos el modelo más estable para Streamlit Cloud
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# ================= CONFIG UI =================
-st.set_page_config(page_title="SÍ AL MÉRITO - Simulador IA", layout="wide")
+# ================= 2. INTERFAZ PROFESIONAL =================
+st.set_page_config(page_title="SÍ AL MÉRITO - Búnker IA", layout="wide", page_icon="🏆")
 
 st.markdown("""
     <style>
-    .stButton>button { background-color: #1b5e20; color: white; border-radius: 10px; font-weight: bold; width: 100%; }
-    .stTextInput>div>div>input { border: 2px solid #1b5e20; }
+    .main { background-color: #f5f7f9; }
+    .stButton>button { 
+        background: linear-gradient(90deg, #1b5e20 0%, #2e7d32 100%); 
+        color: white; border-radius: 12px; font-weight: bold; height: 3.5em; border: none; transition: 0.3s;
+    }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0px 4px 15px rgba(0,0,0,0.2); }
+    .stTextInput>div>div>input { border: 2px solid #1b5e20; border-radius: 10px; }
+    .reportview-container .main .block-container { padding-top: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# ================= FUNCIÓN PRINCIPAL =================
-def generar_simulacro(tema, nivel, cantidad):
+# ================= 3. LÓGICA DE ALTA DISPONIBILIDAD =================
+def generar_simulacro_ia(tema, nivel, cantidad):
     prompt = (
-        f"Genera un cuestionario de {cantidad} preguntas sobre '{tema}' para nivel {nivel} en Colombia. "
-        f"Devuelve SOLO un JSON válido (sin texto adicional) con este formato: "
-        f"[{'{'}\"p\": \"pregunta\", \"o\": [\"A\", \"B\", \"C\", \"D\"], \"r\": \"A\", \"s\": \"sustento\"{'}'}]"
+        f"Eres un experto en leyes de Colombia y concursos CNSC. Genera un examen de {cantidad} preguntas "
+        f"sobre '{tema}' para nivel {nivel}. Responde ÚNICAMENTE un JSON puro, sin texto extra, "
+        f"con este formato: [{{'p': 'pregunta', 'o': ['A', 'B', 'C', 'D'], 'r': 'La opción exacta escrita igual', 's': 'sustento legal'}}]"
     )
-
+    
     try:
         response = model.generate_content(prompt)
         res_text = response.text.strip()
 
-        # Limpiar bloques markdown
+        # Limpiador de código Markdown (Bypass de errores)
         if "```" in res_text:
-            res_text = res_text.split("```")[1].replace("json", "").strip()
-
-        # Extraer JSON aunque venga con texto adicional
-        match = re.search(r"\[.*\]", res_text, re.DOTALL)
-        if match:
-            res_text = match.group(0)
-
-        data = json.loads(res_text)
-        return data
-
+            res_text = re.search(r"\[.*\]", res_text.replace("```json", "").replace("```", ""), re.DOTALL).group(0)
+        
+        return json.loads(res_text)
     except Exception as e:
-        st.error(f"❌ Error procesando la respuesta: {e}")
+        st.error(f"⚠️ Error de Conexión IA: {e}")
         return None
 
-# ================= ESTADO =================
-if 'fase' not in st.session_state:
-    st.session_state.fase = "inicio"
+# ================= 4. FLUJO DE NAVEGACIÓN =================
+if 'fase' not in st.session_state: st.session_state.fase = "inicio"
+if 'preguntas' not in st.session_state: st.session_state.preguntas = []
 
-# ================= INTERFAZ =================
-st.header("🏆 SÍ AL MÉRITO - Simulador Inteligente")
+st.title("🏆 SÍ AL MÉRITO: Búnker de IA")
+st.markdown("---")
 
 if st.session_state.fase == "inicio":
-    st.subheader("Configuración del simulacro")
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("⚙️ Configuración del Simulacro")
+        tema = st.text_input("🎯 Tema Normativo:", placeholder="Ej: Ley 1437, MIPG, Código de Policía...")
+        nivel = st.selectbox("Nivel del Cargo:", ["Asistencial", "Técnico", "Profesional"])
+        cantidad = st.select_slider("Cantidad de preguntas:", options=[3, 5, 10, 15], value=5)
+        
+        if st.button("🚀 GENERAR EXAMEN AHORA"):
+            if tema:
+                with st.spinner("⏳ La IA está analizando la normativa y redactando..."):
+                    data = generar_simulacro_ia(tema, nivel, cantidad)
+                    if data:
+                        st.session_state.preguntas = data
+                        st.session_state.respuestas_usuario = {}
+                        st.session_state.tema_actual = tema
+                        st.session_state.fase = "examen"
+                        st.rerun()
+            else:
+                st.warning("⚠️ Por favor, ingresa un tema de estudio.")
+    
+    with col2:
+        st.info("""
+        **¿Cómo funciona?**
+        1. Ingresa la ley o tema que quieres estudiar.
+        2. La IA genera preguntas tipo Juicio Situacional (CNSC).
+        3. Recibes calificación y sustento legal inmediato.
+        """)
 
-    tema = st.text_input("🎯 Tema:")
-    nivel = st.selectbox("Nivel:", ["Asistencial", "Técnico", "Profesional"])
-    cantidad = st.slider("Número de preguntas:", 3, 15, 5)
-
-    if st.button("🚀 Generar Simulacro"):
-        if tema:
-            with st.spinner("Generando preguntas..."):
-                data = generar_simulacro(tema, nivel, cantidad)
-
-                if data:
-                    st.session_state.preguntas = data
-                    st.session_state.respuestas = {}
-                    st.session_state.tema = tema
-                    st.session_state.fase = "examen"
-                    st.rerun()
-        else:
-            st.warning("⚠️ Debes ingresar un tema")
-
-# ================= EXAMEN =================
 elif st.session_state.fase == "examen":
-    st.subheader(f"Simulacro: {st.session_state.tema}")
-
+    st.subheader(f"📝 Evaluando: {st.session_state.tema_actual}")
+    
+    # Mostrar preguntas
     for i, item in enumerate(st.session_state.preguntas):
-        st.markdown(f"**{i+1}. {item['p']}**")
+        with st.container():
+            st.markdown(f"#### {i+1}. {item['p']}")
+            opcion = st.radio("Selecciona tu respuesta:", item['o'], key=f"pregunta_{i}", index=None)
+            st.session_state.respuestas_usuario[i] = opcion
+            st.markdown("---")
 
-        respuesta = st.radio(
-            "Seleccione una opción:",
-            item['o'],
-            key=f"q_{i}",
-            index=None
-        )
+    col_fin1, col_fin2 = st.columns(2)
+    with col_fin1:
+        if st.button("📊 FINALIZAR Y CALIFICAR"):
+            st.session_state.fase = "resultado"
+            st.rerun()
+    with col_fin2:
+        if st.button("🔄 CANCELAR"):
+            st.session_state.fase = "inicio"
+            st.rerun()
 
-        st.session_state.respuestas[i] = respuesta
+elif st.session_state.fase == "resultado":
+    st.subheader("📊 Resultados del Simulacro")
+    
+    correctas = 0
+    total = len(st.session_state.preguntas)
+    
+    for i, item in enumerate(st.session_state.preguntas):
+        if st.session_state.respuestas_usuario.get(i) == item['r']:
+            correctas += 1
+            
+    score = (correctas / total) * 100
+    
+    # Mostrar métricas
+    m1, m2 = st.columns(2)
+    m1.metric("Puntaje", f"{score:.1f}%")
+    m2.metric("Correctas", f"{correctas} de {total}")
 
-    if st.button("📊 Calificar"):
-        correctas = 0
+    if score >= 70:
+        st.balloons()
+        st.success("¡Excelente nivel! Estás listo para el concurso.")
+    else:
+        st.warning("Sigue practicando. Repasa los sustentos legales abajo.")
 
+    with st.expander("🔍 REVISIÓN DETALLADA (Retroalimentación)"):
         for i, item in enumerate(st.session_state.preguntas):
-            if st.session_state.respuestas.get(i) == item['r']:
-                correctas += 1
+            st.markdown(f"**Pregunta {i+1}:** {item['p']}")
+            st.write(f"✅ **Correcta:** {item['r']}")
+            st.write(f"❌ **Tu respuesta:** {st.session_state.respuestas_usuario.get(i)}")
+            st.info(f"⚖️ **Sustento Legal:** {item['s']}")
+            st.markdown("---")
 
-        total = len(st.session_state.preguntas)
-        score = (correctas / total) * 100
-
-        st.success(f"✅ Resultado: {correctas}/{total} ({score:.2f}%)")
-
-        with st.expander("📘 Ver respuestas correctas"):
-            for i, item in enumerate(st.session_state.preguntas):
-                st.markdown(f"**{i+1}. {item['p']}**")
-                st.write(f"✔ Correcta: {item['r']}")
-                st.write(f"🧠 Sustento: {item['s']}")
-                st.markdown("---")
-
-    if st.button("🔄 Nuevo simulacro"):
+    if st.button("🔄 REALIZAR OTRO EXAMEN"):
         st.session_state.fase = "inicio"
         st.rerun()
