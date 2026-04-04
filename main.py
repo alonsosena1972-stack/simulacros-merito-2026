@@ -5,7 +5,7 @@ import os
 import re
 
 # ================= CONFIGURACIÓN SEGURA =================
-GENAI_API_KEY = os.getenv("GENAI_API_KEY")
+GENAI_API_KEY = os.getenv("AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE")
 
 if not GENAI_API_KEY:
     st.error("⚠️ Debes configurar la variable de entorno GENAI_API_KEY")
