@@ -2,25 +2,16 @@ import streamlit as st
 import google.generativeai as genai
 import json
 
-# 1. Configuración de tu llave
+# 1. Configuración de tu llave (Directa)
 GENAI_API_KEY = "AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE" 
 genai.configure(api_key=GENAI_API_KEY)
 
-# 2. BUSCADOR AUTOMÁTICO DE MODELO (Esto evita el error 404)
-@st.cache_resource
-def obtener_modelo():
-    modelos_disponibles = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    # Priorizamos gemini-1.5-flash, si no, gemini-pro, si no, el primero que haya
-    for nombre in ['models/gemini-1.5-flash', 'models/gemini-pro']:
-        if nombre in modelos_disponibles:
-            return genai.GenerativeModel(nombre)
-    return genai.GenerativeModel(modelos_disponibles[0])
-
-model = obtener_modelo()
+# 2. Definición del Modelo (Sin procesos extra para evitar PermissionDenied)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 st.set_page_config(page_title="SÍ AL MÉRITO - IA Engine", layout="wide")
 
-# Diseño visual Pro
+# Estilo visual de SÍ AL MÉRITO
 st.markdown("""
     <style>
     .stButton>button { background-color: #2e7d32; color: white; border-radius: 8px; font-weight: bold; width: 100%; }
@@ -28,38 +19,40 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Función de Generación
+# 3. Función de Generación de Preguntas
 def generar_preguntas_ia(tema, nivel, cantidad):
     prompt = (
-        f"Actúa como experto en la CNSC de Colombia. Genera un examen de {cantidad} preguntas sobre '{tema}' para nivel {nivel}. "
-        f"Responde ÚNICAMENTE un array JSON: [{{'p': 'pregunta', 'o': ['A', 'B', 'C'], 'r': 'A', 's': 'sustento'}}]"
+        f"Genera un examen de {cantidad} preguntas sobre '{tema}' para nivel {nivel} en Colombia. "
+        f"Responde ÚNICAMENTE un array JSON con este formato: "
+        f"[{{'p': 'pregunta', 'o': ['A', 'B', 'C'], 'r': 'A', 's': 'sustento'}}]"
     )
     try:
         response = model.generate_content(prompt)
         texto = response.text.strip()
+        # Limpieza de etiquetas markdown si aparecen
         if "```json" in texto:
             texto = texto.split("```json")[1].split("```")[0].strip()
         elif "```" in texto:
             texto = texto.split("```")[1].split("```")[0].strip()
         return json.loads(texto)
     except Exception as e:
-        st.error(f"Error técnico: {e}")
+        st.error(f"Error de acceso: Asegúrate de que la API Key esté activa en Google AI Studio. (Detalle: {e})")
         return None
 
-# 4. Interfaz
+# 4. Interfaz del Búnker
 if 'fase' not in st.session_state: st.session_state.fase = "inicio"
 
 st.header("🏆 Búnker de Inteligencia Artificial")
 
 if st.session_state.fase == "inicio":
-    st.info("Escribe el tema y la IA de SÍ AL MÉRITO redactará el simulacro.")
-    tema_input = st.text_input("🎯 ¿Qué tema quieres estudiar hoy?")
-    nivel_sel = st.selectbox("Nivel:", ["Asistencial", "Técnico", "Profesional"])
-    cant_sel = st.slider("Cantidad:", 3, 10, 3)
+    st.info("Escribe el tema y la IA redactará el simulacro para SÍ AL MÉRITO.")
+    tema_input = st.text_input("🎯 ¿Qué tema quieres estudiar hoy?", placeholder="Ej: Ley 1755 de 2015...")
+    nivel_sel = st.selectbox("Nivel de Carrera:", ["Asistencial", "Técnico", "Profesional"])
+    cant_sel = st.slider("Cantidad de preguntas:", 3, 10, 3)
     
-    if st.button("✨ GENERAR EXAMEN AHORA"):
+    if st.button("🚀 GENERAR EXAMEN AHORA"):
         if tema_input:
-            with st.spinner("Buscando en la base de datos de la IA..."):
+            with st.spinner("La IA de SÍ AL MÉRITO está redactando..."):
                 resultado = generar_preguntas_ia(tema_input, nivel_sel, cant_sel)
                 if resultado:
                     st.session_state.preguntas = resultado
@@ -67,7 +60,7 @@ if st.session_state.fase == "inicio":
                     st.session_state.fase = "examen"
                     st.rerun()
         else:
-            st.warning("Escribe un tema.")
+            st.warning("Por favor, escribe un tema.")
 
 elif st.session_state.fase == "examen":
     st.subheader(f"Simulacro: {st.session_state.tema_actual}")
@@ -76,6 +69,6 @@ elif st.session_state.fase == "examen":
         st.radio("Respuesta:", q['o'], key=f"r_{i}", index=None)
         st.write("---")
     
-    if st.button("🏁 Finalizar"):
+    if st.button("🏁 Volver al Inicio"):
         st.session_state.fase = "inicio"
         st.rerun()
