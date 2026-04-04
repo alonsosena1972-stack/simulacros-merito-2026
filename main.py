@@ -2,45 +2,63 @@ import streamlit as st
 import google.generativeai as genai
 import json
 
-# ================= 1. NUEVA CONEXIÓN =================
-# REEMPLAZA ESTA LLAVE POR LA NUEVA QUE CREASTE
-NUEVA_LLAVE = "AIzaSyCsJESVFAfjbp8yi3PZYGebD_EESV2oQro" 
+# ================= 1. CONEXIÓN DIRECTA =================
+# RECUERDA: Genera una nueva llave en Google AI Studio si la anterior sigue fallando
+NUEVA_LLAVE = "AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE" 
 
 genai.configure(api_key=NUEVA_LLAVE)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 st.set_page_config(page_title="SÍ AL MÉRITO - Búnker IA", layout="wide")
 
-# ================= 2. MOTOR DE SIMULACRO =================
+# ================= 2. MOTOR DE SIMULACRO (CORREGIDO) =================
 def generar_simulacro(tema, nivel):
-    prompt = f"Genera 3 preguntas de opción múltiple sobre {tema} para nivel {nivel} en Colombia. Responde SOLO un JSON: [{'p':'...','o':['A','B','C'],'r':'A'}]"
+    # Usamos doble llave {{ }} para que Python no se confunda con el JSON
+    prompt = (
+        f"Genera 3 preguntas de opción múltiple sobre {tema} para nivel {nivel} en Colombia. "
+        f"Responde ÚNICAMENTE un JSON con este formato exacto: "
+        f"[{{'p':'pregunta','o':['A','B','C'],'r':'A'}}] "
+        f"No escribas nada más que el JSON."
+    )
+    
     try:
         response = model.generate_content(prompt)
-        # Limpieza rápida de la respuesta
-        texto = response.text.strip().replace('```json', '').replace('```', '')
-        return json.loads(texto)
+        res_text = response.text.strip()
+        
+        # Limpieza de etiquetas markdown por seguridad
+        if "```" in res_text:
+            res_text = res_text.split("```")[1].replace("json", "").strip()
+            
+        return json.loads(res_text)
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
+        st.error(f"Error de procesamiento: {e}")
         return None
 
-# ================= 3. INTERFAZ MÍNIMA PARA PRUEBA =================
+# ================= 3. INTERFAZ PROFESIONAL =================
 st.title("🏆 SÍ AL MÉRITO - Búnker IA")
+st.markdown("---")
 
 if 'preguntas' not in st.session_state:
-    tema = st.text_input("🎯 ¿Qué tema probamos?")
-    nivel = st.selectbox("Nivel:", ["Asistencial", "Técnico", "Profesional"])
+    st.subheader("Configuración del Simulacro")
+    tema_input = st.text_input("🎯 Tema de estudio (Ej: Ley 1437):")
+    nivel_input = st.selectbox("Nivel:", ["Asistencial", "Técnico", "Profesional"])
     
-    if st.button("🚀 PROBAR CONEXIÓN"):
-        with st.spinner("Conectando..."):
-            data = generar_simulacro(tema, nivel)
-            if data:
-                st.session_state.preguntas = data
-                st.rerun()
+    if st.button("🚀 GENERAR SIMULACRO"):
+        if tema_input:
+            with st.spinner("⏳ Conectando con la Inteligencia Artificial..."):
+                data = generar_simulacro(tema_input, nivel_input)
+                if data:
+                    st.session_state.preguntas = data
+                    st.rerun()
+        else:
+            st.warning("⚠️ Escribe un tema primero.")
 else:
+    st.subheader("📝 Resuelve tu examen")
     for i, q in enumerate(st.session_state.preguntas):
         st.write(f"**{i+1}. {q['p']}**")
-        st.radio("Opciones:", q['o'], key=f"p_{i}")
+        st.radio("Selecciona:", q['o'], key=f"p_{i}", index=None)
+        st.divider()
     
-    if st.button("🔄 Reiniciar"):
+    if st.button("🔄 Crear nuevo simulacro"):
         del st.session_state.preguntas
         st.rerun()
