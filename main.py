@@ -1,85 +1,46 @@
 import streamlit as st
 import google.generativeai as genai
 import json
-import re
 
-# ================= 1. CONFIGURACIÓN TÉCNICA =================
-GENAI_API_KEY = "AIzaSyAv_BfMaM6-jhk1zaCvcUR1z3_cpxDHeqE" 
-genai.configure(api_key=GENAI_API_KEY)
+# ================= 1. NUEVA CONEXIÓN =================
+# REEMPLAZA ESTA LLAVE POR LA NUEVA QUE CREASTE
+NUEVA_LLAVE = "AIzaSyCsJESVFAfjbp8yi3PZYGebD_EESV2oQro" 
 
-# Lógica de Autodeteción: Prueba modelos del más nuevo al más viejo
-@st.cache_resource
-def cargar_modelo_seguro():
-    modelos_a_probar = [
-        'gemini-1.5-flash', 
-        'models/gemini-1.5-flash', 
-        'gemini-pro', 
-        'models/gemini-pro'
-    ]
-    for nombre in modelos_a_probar:
-        try:
-            m = genai.GenerativeModel(nombre)
-            # Prueba rápida de conexión
-            m.generate_content("hola", generation_config={"max_output_tokens": 1})
-            return m
-        except:
-            continue
-    return None
+genai.configure(api_key=NUEVA_LLAVE)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-model = cargar_modelo_seguro()
-
-# ================= 2. INTERFAZ SÍ AL MÉRITO =================
 st.set_page_config(page_title="SÍ AL MÉRITO - Búnker IA", layout="wide")
 
-if not model:
-    st.error("❌ ERROR DE SISTEMA: Google no reconoce tu API Key o los modelos están desactivados en tu región.")
-    st.stop()
-
-# ================= 3. MOTOR DE GENERACIÓN =================
-def generar_simulacro_ia(tema, nivel, cantidad):
-    prompt = (
-        f"Genera un examen de {cantidad} preguntas sobre '{tema}' para nivel {nivel} en Colombia. "
-        f"Responde ÚNICAMENTE un array JSON puro: "
-        f"[{{'p': 'pregunta', 'o': ['A', 'B', 'C', 'D'], 'r': 'Opción Correcta', 's': 'Sustento'}}] "
-    )
+# ================= 2. MOTOR DE SIMULACRO =================
+def generar_simulacro(tema, nivel):
+    prompt = f"Genera 3 preguntas de opción múltiple sobre {tema} para nivel {nivel} en Colombia. Responde SOLO un JSON: [{'p':'...','o':['A','B','C'],'r':'A'}]"
     try:
         response = model.generate_content(prompt)
-        res_text = response.text.strip()
-        
-        # Limpiador de seguridad para extraer el JSON
-        match = re.search(r"\[.*\]", res_text, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
-        return json.loads(res_text)
+        # Limpieza rápida de la respuesta
+        texto = response.text.strip().replace('```json', '').replace('```', '')
+        return json.loads(texto)
     except Exception as e:
-        st.error(f"⚠️ Error de respuesta IA: {e}")
+        st.error(f"Error de conexión: {e}")
         return None
 
-# ================= 4. NAVEGACIÓN DEL BÚNKER =================
-if 'fase' not in st.session_state: st.session_state.fase = "inicio"
+# ================= 3. INTERFAZ MÍNIMA PARA PRUEBA =================
+st.title("🏆 SÍ AL MÉRITO - Búnker IA")
 
-st.title("🏆 SÍ AL MÉRITO: Búnker de IA")
-
-if st.session_state.fase == "inicio":
-    tema = st.text_input("🎯 Tema (Ej: Ley 1437):")
+if 'preguntas' not in st.session_state:
+    tema = st.text_input("🎯 ¿Qué tema probamos?")
     nivel = st.selectbox("Nivel:", ["Asistencial", "Técnico", "Profesional"])
-    cant = st.slider("Preguntas:", 3, 10, 5)
     
-    if st.button("🚀 CONSTRUIR EXAMEN"):
-        if tema:
-            with st.spinner("Conectando con la red neuronal..."):
-                data = generar_simulacro_ia(tema, nivel, cant)
-                if data:
-                    st.session_state.preguntas = data
-                    st.session_state.fase = "examen"
-                    st.rerun()
-
-elif st.session_state.fase == "examen":
-    for i, item in enumerate(st.session_state.preguntas):
-        st.write(f"**{i+1}. {item['p']}**")
-        st.radio("Opciones:", item['o'], key=f"p_{i}")
-        st.divider()
+    if st.button("🚀 PROBAR CONEXIÓN"):
+        with st.spinner("Conectando..."):
+            data = generar_simulacro(tema, nivel)
+            if data:
+                st.session_state.preguntas = data
+                st.rerun()
+else:
+    for i, q in enumerate(st.session_state.preguntas):
+        st.write(f"**{i+1}. {q['p']}**")
+        st.radio("Opciones:", q['o'], key=f"p_{i}")
     
-    if st.button("🔄 Volver"):
-        st.session_state.fase = "inicio"
+    if st.button("🔄 Reiniciar"):
+        del st.session_state.preguntas
         st.rerun()
